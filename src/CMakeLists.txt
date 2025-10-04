@@ -18,7 +18,7 @@ find_path(CUDA_CONVOLUTION_INCLUDE_DIRS cuda_convolution_utils.hpp HINTS ${CMAKE
 # Add all the source files in the current directory to build the library
 add_library(
     cuda_convolution
-    STATIC
+    STATIC # XXX: not sure why rdc=True only works if building a static library
     cuda_convolution_utils.cu
     v00_naive.cu
     v01_constant_memory.cu
