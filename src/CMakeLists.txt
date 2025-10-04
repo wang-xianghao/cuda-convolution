@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.28)
 
 project(CUDA-CONVOLUTION VERSION 0.0.1 LANGUAGES CXX CUDA)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find CUDA Toolkit
@@ -17,6 +17,7 @@ add_library(
     SHARED
     cuda_convolution_utils.cu
     v00_naive.cu
+    v01_constant_memory.cu
 )
 
 # Add the include directory of the library to the include directories of the project
