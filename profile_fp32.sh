@@ -1,0 +1,1 @@
+./build/src/profile_cuda_convolution_fp32
