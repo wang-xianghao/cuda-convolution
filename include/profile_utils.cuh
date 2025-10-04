@@ -6,11 +6,16 @@
 #include <iostream>
 #include <random>
 
+#include "cuda_convolution.hpp"
 #include "cuda_convolution_utils.hpp"
 
-using ConvolutionLauncher = std::function<void(
-    size_t m, size_t n, size_t r, const float* A, size_t lda, float* B,
-    size_t ldb, const float* W, size_t ldw, cudaStream_t stream)>;
+__constant__ std::byte const_mem[MAX_CONST_MEM];
+
+template <typename T>
+using ConvolutionLauncher =
+    std::function<void(size_t m, size_t n, size_t r, const T* A, size_t lda,
+                       T* B, size_t ldb, const T* W, size_t ldw,
+                       cudaStream_t stream)>;
 
 void print_device_info()
 {
@@ -78,8 +83,8 @@ void random_initialize_matrix(T* A, size_t m, size_t n, size_t lda,
 }
 
 template <typename T>
-void launch_convolution_cpu(size_t m, size_t n, size_t r, float const* A,
-                            size_t lda, float* B, size_t ldb, float const* W,
+void launch_convolution_cpu(size_t m, size_t n, size_t r, T const* A,
+                            size_t lda, T* B, size_t ldb, T const* W,
                             size_t ldw)
 {
     size_t k = 2U * r + 1U;
@@ -96,7 +101,7 @@ void launch_convolution_cpu(size_t m, size_t n, size_t r, float const* A,
                     ssize_t jj{static_cast<ssize_t>(j - r + kernel_j)};
                     if (ii >= 0 && ii < m && jj >= 0 && jj < n)
                     {
-                        sum += A[ii * ldb + jj] * W[kernel_i * ldw + kernel_j];
+                        sum += A[ii * lda + jj] * W[kernel_i * ldw + kernel_j];
                     }
                 }
             }
@@ -178,7 +183,8 @@ float measure_performance(std::function<T(cudaStream_t)> bound_function,
 
 template <typename T>
 float profile_convolution(size_t m, size_t n, size_t r, size_t lda, size_t ldb,
-                          size_t ldw, ConvolutionLauncher convolution_launcher,
+                          size_t ldw,
+                          ConvolutionLauncher<T> convolution_launcher,
                           T abs_tol, double rel_tol, size_t num_repeats = 10,
                           size_t num_warmups = 10, unsigned int seed = 0U)
 {
@@ -217,6 +223,10 @@ float profile_convolution(size_t m, size_t n, size_t r, size_t lda, size_t ldb,
     CHECK_CUDA_ERROR(cudaMemcpy(W_device, W_host, k * ldw * sizeof(T),
                                 cudaMemcpyHostToDevice));
 
+    // Copy filter to constant memory
+    CHECK_CUDA_ERROR(
+        cudaMemcpyToSymbol(const_mem, W_host, k * ldw * sizeof(T)));
+
     // Compute reference output using CPU
     std::cout << "Computing reference output using CPU..." << std::endl;
     launch_convolution_cpu<T>(m, n, r, A_host, lda, B_host_ref, ldb, W_host,
@@ -229,7 +239,7 @@ float profile_convolution(size_t m, size_t n, size_t r, size_t lda, size_t ldb,
     CHECK_CUDA_ERROR(cudaStreamSynchronize(stream));
     CHECK_CUDA_ERROR(cudaMemcpy(B_host, B_device, m * ldb * sizeof(T),
                                 cudaMemcpyDeviceToHost));
-    assert(all_close<T>(B_host_ref, B_host, m, n, ldb, abs_tol, rel_tol));
+    assert(all_close<T>(B_host, B_host_ref, m, n, ldb, abs_tol, rel_tol));
 
     // Measure CUDA convolution performance
     float const latency_cuda_convolution{measure_performance<void>(

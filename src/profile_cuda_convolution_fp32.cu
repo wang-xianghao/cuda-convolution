@@ -35,9 +35,11 @@ int main()
            k, r, ldw);
     printf("\n");
 
-    const std::vector<std::pair<std::string, ConvolutionLauncher>>
+    const std::vector<std::pair<std::string, ConvolutionLauncher<float>>>
         convolution_launchers{{"Custom Convolution Kernel V00",
-                               launch_kernel_convolution_v00<float>}};
+                               launch_kernel_convolution_v00<float>},
+                              {"Custom Convolution Kernel V01",
+                               launch_kernel_convolution_v01<float>}};
 
     for (const auto& convolution_launcher : convolution_launchers)
     {
