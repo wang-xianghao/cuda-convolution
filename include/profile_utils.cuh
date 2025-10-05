@@ -9,8 +9,6 @@
 #include "cuda_convolution.hpp"
 #include "cuda_convolution_utils.hpp"
 
-__constant__ std::byte const_mem[MAX_CONST_MEM];
-
 template <typename T>
 using ConvolutionLauncher =
     std::function<void(size_t m, size_t n, size_t r, const T* A, size_t lda,

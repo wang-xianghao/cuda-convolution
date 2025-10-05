@@ -6,6 +6,8 @@
 #include "cuda_convolution.hpp"
 #include "profile_utils.cuh"
 
+__constant__ std::byte const_mem[MAX_CONST_MEM];
+
 int main()
 {
     print_device_info();
