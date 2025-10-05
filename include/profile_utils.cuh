@@ -9,6 +9,8 @@
 #include "cuda_convolution.hpp"
 #include "cuda_convolution_utils.hpp"
 
+#define ENABLE_VERIFYING // Whether to verify CUDA convolution result
+
 template <typename T>
 using ConvolutionLauncher =
     std::function<void(size_t m, size_t n, size_t r, const T* A, size_t lda,
@@ -225,11 +227,13 @@ float profile_convolution(size_t m, size_t n, size_t r, size_t lda, size_t ldb,
     CHECK_CUDA_ERROR(
         cudaMemcpyToSymbol(const_mem, W_host, k * ldw * sizeof(T)));
 
-    // Compute reference output using CPU
+// Compute reference output using CPU
+#ifdef ENABLE_VERIFYING
     std::cout << "Computing reference output using CPU..." << std::endl;
     launch_convolution_cpu<T>(m, n, r, A_host, lda, B_host_ref, ldb, W_host,
                               ldw);
     std::cout << "Done." << std::endl;
+#endif
 
     // Launch CUDA convolution
     convolution_launcher(m, n, r, A_device, lda, B_device, ldb, W_device, ldw,
@@ -237,7 +241,10 @@ float profile_convolution(size_t m, size_t n, size_t r, size_t lda, size_t ldb,
     CHECK_CUDA_ERROR(cudaStreamSynchronize(stream));
     CHECK_CUDA_ERROR(cudaMemcpy(B_host, B_device, m * ldb * sizeof(T),
                                 cudaMemcpyDeviceToHost));
+
+#ifdef ENABLE_VERIFYING
     assert(all_close<T>(B_host, B_host_ref, m, n, ldb, abs_tol, rel_tol));
+#endif
 
     // Measure CUDA convolution performance
     float const latency_cuda_convolution{measure_performance<void>(
