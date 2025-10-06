@@ -22,7 +22,7 @@ add_library(
     cuda_convolution_utils.cu
     v00_naive.cu
     v01_constant_memory.cu
-    v02_tiling.cu
+    v02_input_tiling.cu
 )
 
 # Add the include directory of the library to the include directories of the project
