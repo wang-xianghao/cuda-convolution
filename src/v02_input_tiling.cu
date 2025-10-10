@@ -1,40 +1,53 @@
 #include "cuda_convolution.hpp"
 #include "cuda_convolution_utils.hpp"
 
-template <typename T>
+template <typename T, size_t INPUT_BLOCK_X, size_t INPUT_BLOCK_Y>
 __global__ void convolution_v02(size_t m, size_t n, size_t r, T const* A,
                                 size_t lda, T* B, size_t ldb, T const* W,
                                 size_t ldw)
 {
-    const size_t B_col_idx{blockIdx.x * blockDim.x + threadIdx.x};
-    const size_t B_row_idx{blockIdx.y * blockDim.y + threadIdx.y};
+    const size_t k = 2U * r + 1U;
+    const long long r_ll = static_cast<long long>(r);
+    const size_t OUTPUT_BLOCK_X{INPUT_BLOCK_X - 2U * r};
+    const size_t OUTPUT_BLOCK_Y{INPUT_BLOCK_Y - 2U * r};
+    const ssize_t tile_row{threadIdx.y - r_ll};
+    const ssize_t tile_col{threadIdx.x - r_ll};
+    const ssize_t row{static_cast<ssize_t>(blockIdx.y * OUTPUT_BLOCK_Y) + tile_row};
+    const ssize_t col{static_cast<ssize_t>(blockIdx.x * OUTPUT_BLOCK_X) + tile_col};
 
     // Access constant memory
     T const* W_const = reinterpret_cast<T const*>(const_mem);
 
-    if (B_row_idx >= m || B_col_idx >= n)
+    // Copy tile to shared memory
+    __shared__ T A_tile[INPUT_BLOCK_Y][INPUT_BLOCK_X];
+    if (row >= 0 && row < m && col >= 0 && col < n)
     {
-        return;
+        A_tile[threadIdx.y][threadIdx.x] = A[row * lda + col];
     }
-
-    T sum{static_cast<T>(0)};
-
-    for (size_t w_row_idx{0}; w_row_idx < 2U * r + 1U; w_row_idx++)
+    else
     {
-        for (size_t w_col_idx{0}; w_col_idx < 2U * r + 1U; w_col_idx++)
+        A_tile[threadIdx.y][threadIdx.x] = static_cast<T>(0);
+    }
+    __syncthreads();
+
+    // Compute the cell
+    if (row >= 0 && row < m && col >= 0 && col < n)
+    {
+        if (tile_row >= 0 && tile_row < OUTPUT_BLOCK_Y && tile_col >= 0 &&
+            tile_col < OUTPUT_BLOCK_X)
         {
-            ssize_t A_row_idx{static_cast<ssize_t>(B_row_idx - r + w_row_idx)};
-            ssize_t A_col_idx{static_cast<ssize_t>(B_col_idx - r + w_col_idx)};
-            if (A_row_idx >= 0 && A_row_idx < m && A_col_idx >= 0 &&
-                A_col_idx < n)
+            T sum{static_cast<T>(0)};
+            for (size_t w_row{0U}; w_row < k; ++w_row)
             {
-                sum += A[A_row_idx * lda + A_col_idx] *
-                       W_const[w_row_idx * ldw + w_col_idx];
+                for (size_t w_col{0U}; w_col < k; ++w_col)
+                {
+                    sum += A_tile[tile_row + w_row][tile_col + w_col] *
+                           W_const[w_row * ldw + w_col];
+                }
             }
+            B[row * ldb + col] = sum;
         }
     }
-
-    B[B_row_idx * ldb + B_col_idx] = sum;
 }
 
 template <typename T>
@@ -42,11 +55,17 @@ void launch_kernel_convolution_v02(size_t m, size_t n, size_t r, T const* A,
                                    size_t lda, T* B, size_t ldb, T const* W,
                                    size_t ldw, cudaStream_t stream)
 {
-    const dim3 block_dim{32U, 32U, 1U};
+    const size_t INPUT_BLOCK_X{32U};
+    const size_t INPUT_BLOCK_Y{32U};
+    const size_t OUTPUT_BLOCK_X{INPUT_BLOCK_X - 2U * r};
+    const size_t OUTPUT_BLOCK_Y{INPUT_BLOCK_Y - 2U * r};
+
+    const dim3 block_dim{INPUT_BLOCK_X, INPUT_BLOCK_Y, 1U};
     const dim3 grid_dim{
-        (static_cast<unsigned int>(m) + block_dim.x - 1U) / block_dim.x,
-        (static_cast<unsigned int>(n) + block_dim.y - 1U) / block_dim.y, 1U};
-    convolution_v02<T>
+        static_cast<unsigned int>(m + OUTPUT_BLOCK_X - 1U / OUTPUT_BLOCK_X),
+        static_cast<unsigned int>(n + OUTPUT_BLOCK_Y - 1U / OUTPUT_BLOCK_Y),
+        1U};
+    convolution_v02<T, INPUT_BLOCK_X, INPUT_BLOCK_Y>
         <<<grid_dim, block_dim, 0U, stream>>>(m, n, r, A, lda, B, ldb, W, ldw);
     CHECK_LAST_CUDA_ERROR();
 }
