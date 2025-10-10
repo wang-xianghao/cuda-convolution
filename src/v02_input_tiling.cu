@@ -64,8 +64,8 @@ void launch_kernel_convolution_v02(size_t m, size_t n, size_t r, T const* A,
 
     const dim3 block_dim{INPUT_BLOCK_X, INPUT_BLOCK_Y, 1U};
     const dim3 grid_dim{
-        static_cast<unsigned int>(m + OUTPUT_BLOCK_X - 1U / OUTPUT_BLOCK_X),
-        static_cast<unsigned int>(n + OUTPUT_BLOCK_Y - 1U / OUTPUT_BLOCK_Y),
+        static_cast<unsigned int>((m + OUTPUT_BLOCK_X - 1U) / OUTPUT_BLOCK_X),
+        static_cast<unsigned int>((n + OUTPUT_BLOCK_Y - 1U) / OUTPUT_BLOCK_Y),
         1U};
     convolution_v02<T, INPUT_BLOCK_X, INPUT_BLOCK_Y>
         <<<grid_dim, block_dim, 0U, stream>>>(m, n, r, A, lda, B, ldb, W, ldw);
