@@ -23,6 +23,7 @@ add_library(
     v00_naive.cu
     v01_constant_memory.cu
     v02_input_tiling.cu
+    v03_output_tiling_cached.cu
 )
 
 # Add the include directory of the library to the include directories of the project

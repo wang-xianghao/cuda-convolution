@@ -43,7 +43,9 @@ int main()
                               {"Custom Convolution Kernel V01",
                                launch_kernel_convolution_v01<float>},
                               {"Custom Convolution Kernel V02",
-                               launch_kernel_convolution_v02<float>}};
+                               launch_kernel_convolution_v02<float>},
+                              {"Custom Convolution Kernel V03",
+                               launch_kernel_convolution_v03<float>}};
 
     for (const auto& convolution_launcher : convolution_launchers)
     {
