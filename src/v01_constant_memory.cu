@@ -6,6 +6,7 @@ __global__ void convolution_v01(size_t m, size_t n, size_t r, T const* A,
                                 size_t lda, T* B, size_t ldb, T const* W,
                                 size_t ldw)
 {
+    const ssize_t r_signed{static_cast<ssize_t>(r)};
     const size_t B_col_idx{blockIdx.x * blockDim.x + threadIdx.x};
     const size_t B_row_idx{blockIdx.y * blockDim.y + threadIdx.y};
 
@@ -23,8 +24,10 @@ __global__ void convolution_v01(size_t m, size_t n, size_t r, T const* A,
     {
         for (size_t w_col_idx{0}; w_col_idx < 2U * r + 1U; w_col_idx++)
         {
-            ssize_t A_row_idx{static_cast<ssize_t>(B_row_idx - r + w_row_idx)};
-            ssize_t A_col_idx{static_cast<ssize_t>(B_col_idx - r + w_col_idx)};
+            ssize_t A_row_idx{
+                static_cast<ssize_t>(B_row_idx - r_signed + w_row_idx)};
+            ssize_t A_col_idx{
+                static_cast<ssize_t>(B_col_idx - r_signed + w_col_idx)};
             if (A_row_idx >= 0 && A_row_idx < m && A_col_idx >= 0 &&
                 A_col_idx < n)
             {
