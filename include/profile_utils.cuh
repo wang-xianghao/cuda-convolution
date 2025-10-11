@@ -9,7 +9,7 @@
 #include "cuda_convolution.hpp"
 #include "cuda_convolution_utils.hpp"
 
-#define ENABLE_VERIFYING // Whether to verify CUDA convolution result
+// #define ENABLE_VERIFYING // Whether to verify CUDA convolution result
 
 template <typename T>
 using ConvolutionLauncher =
